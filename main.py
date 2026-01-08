@@ -6,10 +6,60 @@ from views import academics, finance, health
 # Page config
 st.set_page_config(page_title="Life OS Dashboard", page_icon="🧭", layout="wide")
 
-# FORCE LIGHT MODE WITH INLINE CSS
-st.markdown('''
+# Initialize mobile mode in session state
+if 'mobile_mode' not in st.session_state:
+    st.session_state.mobile_mode = False
+
+# FORCE LIGHT MODE WITH INLINE CSS + MOBILE RESPONSIVE
+mobile_css = """
+/* MOBILE MODE OVERRIDES */
+.block-container {
+  padding: 1rem 0.5rem !important;
+  max-width: 100% !important;
+}
+
+[data-testid="stSidebar"] {
+  display: none !important;
+}
+
+.stMetric {
+  font-size: 0.9rem !important;
+}
+
+.stMetricValue {
+  font-size: 1.2rem !important;
+}
+
+h1 {
+  font-size: 1.5rem !important;
+}
+
+h2 {
+  font-size: 1.2rem !important;
+}
+
+.apple-card {
+  padding: 16px !important;
+  margin-bottom: 12px !important;
+}
+
+.stButton button {
+  width: 100% !important;
+  padding: 0.75rem !important;
+}
+
+input, .stDateInput, .stTextInput, .stSelectbox {
+  font-size: 16px !important;
+}
+
+.stExpander {
+  margin: 8px 0 !important;
+}
+""" if st.session_state.mobile_mode else ""
+
+st.markdown(f'''
 <style>
-:root {
+:root {{
   --bg: #f5f5f7;
   --text: #0f172a;
   --card: #ffffff;
@@ -17,7 +67,7 @@ st.markdown('''
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
   --radius: 16px;
   --accent: #007aff;
-}
+}}
 
 /* FORCE EVERYTHING TO LIGHT MODE */
 html, body, [class*="css"], .stApp, .main, .block-container, section {
@@ -105,36 +155,56 @@ div[data-baseweb="input"] > div,
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
 }
+
+{mobile_css}
 </style>
 ''', unsafe_allow_html=True)
 
 # Initialize DB
 db.init_db()
 
-# Sidebar with better styling
-st.sidebar.markdown("<h1 style='text-align: center; margin-bottom: 0;'>🎯</h1>", unsafe_allow_html=True)
-st.sidebar.markdown("<h2 style='text-align: center; margin-top: 0; font-size: 24px;'>2026 Goals</h2>", unsafe_allow_html=True)
-st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
+# Mobile toggle at the top
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.markdown("<h1 style='margin-bottom: 0;'>Life OS Dashboard</h1>", unsafe_allow_html=True)
+with col2:
+    if st.button("📱" if not st.session_state.mobile_mode else "💻", help="Toggle Mobile/Desktop Mode"):
+        st.session_state.mobile_mode = not st.session_state.mobile_mode
+        st.rerun()
 
-# Countdown metric with better styling
-exam_day = date(2026, 1, 16)
-days_remaining = (exam_day - date.today()).days
-st.sidebar.markdown("<div style='text-align: center; margin: 24px 0;'>", unsafe_allow_html=True)
-st.sidebar.metric("⏰ Days to Exam", max(days_remaining, 0), delta="Stay Focused!" if days_remaining > 7 else "Final Push!", delta_color="normal")
-st.sidebar.markdown("</div>", unsafe_allow_html=True)
-
-st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='text-align: center; font-weight: 600; margin-bottom: 12px; color: #86868b;'>NAVIGATE</p>", unsafe_allow_html=True)
-
-view = st.sidebar.radio("Navigation", ["📚 Academics", "💰 Finance", "💪 Health"], label_visibility="collapsed")
-
-st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='text-align: center; font-size: 12px; color: #86868b; margin-top: 40px;'>Life OS Dashboard v1.0<br>Track • Analyze • Achieve</p>", unsafe_allow_html=True)
-
-# Content wrapper
-st.markdown("<h1 style='margin-bottom: 0;'>Life OS Dashboard</h1>", unsafe_allow_html=True)
 st.caption("Track your progress across academics, finance, and health")
 st.write("")
+
+# Conditional navigation based on mode
+if st.session_state.mobile_mode:
+    # Mobile: Use horizontal tabs instead of sidebar
+    view = st.radio("", ["📚 Academics", "💰 Finance", "💪 Health"], horizontal=True, label_visibility="collapsed")
+    
+    # Show exam countdown in mobile mode
+    exam_day = date(2026, 1, 16)
+    days_remaining = (exam_day - date.today()).days
+    st.metric("⏰ Days to Exam", max(days_remaining, 0), delta="Stay Focused!" if days_remaining > 7 else "Final Push!")
+    st.write("---")
+else:
+    # Desktop: Use sidebar
+    st.sidebar.markdown("<h1 style='text-align: center; margin-bottom: 0;'>🎯</h1>", unsafe_allow_html=True)
+    st.sidebar.markdown("<h2 style='text-align: center; margin-top: 0; font-size: 24px;'>2026 Goals</h2>", unsafe_allow_html=True)
+    st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
+
+    # Countdown metric with better styling
+    exam_day = date(2026, 1, 16)
+    days_remaining = (exam_day - date.today()).days
+    st.sidebar.markdown("<div style='text-align: center; margin: 24px 0;'>", unsafe_allow_html=True)
+    st.sidebar.metric("⏰ Days to Exam", max(days_remaining, 0), delta="Stay Focused!" if days_remaining > 7 else "Final Push!", delta_color="normal")
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+    st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
+    st.sidebar.markdown("<p style='text-align: center; font-weight: 600; margin-bottom: 12px; color: #86868b;'>NAVIGATE</p>", unsafe_allow_html=True)
+
+    view = st.sidebar.radio("Navigation", ["📚 Academics", "💰 Finance", "💪 Health"], label_visibility="collapsed")
+
+    st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
+    st.sidebar.markdown("<p style='text-align: center; font-size: 12px; color: #86868b; margin-top: 40px;'>Life OS Dashboard v1.0<br>Track • Analyze • Achieve</p>", unsafe_allow_html=True)
 
 if "Academics" in view:
     st.markdown('<div class="apple-card">', unsafe_allow_html=True)
