@@ -11,7 +11,7 @@ if 'mobile_mode' not in st.session_state:
     st.session_state.mobile_mode = False
 
 # FORCE LIGHT MODE WITH INLINE CSS + MOBILE RESPONSIVE
-mobile_css = """
+mobile_css = '''
 /* MOBILE MODE OVERRIDES */
 .block-container {
   padding: 1rem 0.5rem !important;
@@ -55,7 +55,7 @@ input, .stDateInput, .stTextInput, .stSelectbox {
 .stExpander {
   margin: 8px 0 !important;
 }
-""" if st.session_state.mobile_mode else ""
+''' if st.session_state.mobile_mode else ''
 
 st.markdown(f'''
 <style>
