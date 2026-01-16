@@ -11,7 +11,7 @@ if 'mobile_mode' not in st.session_state:
     st.session_state.mobile_mode = False
 
 # FORCE LIGHT MODE WITH INLINE CSS + MOBILE RESPONSIVE
-mobile_css = '''
+mobile_css = """
 /* MOBILE MODE OVERRIDES */
 .block-container {
   padding: 1rem 0.5rem !important;
@@ -55,7 +55,7 @@ input, .stDateInput, .stTextInput, .stSelectbox {
 .stExpander {
   margin: 8px 0 !important;
 }
-''' if st.session_state.mobile_mode else ''
+""" if st.session_state.mobile_mode else ""
 
 st.markdown(f'''
 <style>
@@ -112,7 +112,7 @@ html, body, [class*="css"], .stApp, .main, .block-container, section {
   background: #f5f5f7 !important;
 }
 
-.apple-card {
+.apple-card {{
   background: #ffffff;
   border-radius: 16px;
   padding: 32px;
@@ -120,27 +120,27 @@ html, body, [class*="css"], .stApp, .main, .block-container, section {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   margin-bottom: 20px;
   color: #0f172a !important;
-}
+}}
 
-.apple-card:hover {
+.apple-card:hover {{
   transform: translateY(-2px);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.1);
-}
+}}
 
-h1, h2, h3, p, li, label, span, div, a {
+h1, h2, h3, p, li, label, span, div, a {{
   color: #0f172a !important;
-}
+}}
 
 div[data-baseweb="input"] > div,
 .stDateInput input,
-.stSelectbox [data-baseweb="select"] {
+.stSelectbox [data-baseweb="select"] {{
   background: #ffffff !important;
   color: #000000 !important;
   border: 1px solid #d1d1d6 !important;
   border-radius: 10px !important;
-}
+}}
 
-.stButton button {
+.stButton button {{
   background: #007aff;
   color: #fff;
   border-radius: 10px;
@@ -148,13 +148,13 @@ div[data-baseweb="input"] > div,
   padding: 0.5rem 1rem;
   font-weight: 600;
   transition: all 0.2s ease;
-}
+}}
 
-.stButton button:hover {
+.stButton button:hover {{
   background: #0051d5;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-}
+}}
 
 {mobile_css}
 </style>
