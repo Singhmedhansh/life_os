@@ -3,6 +3,7 @@ from datetime import date
 from modules import database as db
 from views import academics, finance, health
 
+# Version: 1.1
 # Page config
 st.set_page_config(page_title="Life OS Dashboard", page_icon="🧭", layout="wide")
 
