@@ -54,20 +54,53 @@ def render():
     st.subheader(" Add Transaction")
     st.write("")
 
-    with st.form("finance_form"):
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            category = st.selectbox("Category", CATEGORIES)
-        with col2:
-            amount = st.number_input("Amount", min_value=0.0, format="%.2f")
-        
-        note = st.text_input("Note (optional)")
-        st.write("")
-        submitted = st.form_submit_button(" Add Transaction", use_container_width=True)
-        if submitted and amount > 0:
-            db.add_finance_entry(date.today().isoformat(), category, float(amount), note)
-            st.success(" Transaction saved!")
-            st.rerun()
+    # Toggle between income and expense
+    tab1, tab2, tab3 = st.tabs(["➕ Income", "➖ Expense", "📈 Investment"])
+    
+    with tab1:
+        st.write("**Add Income**")
+        with st.form("income_form"):
+            income_category = st.selectbox("Income Source", 
+                ["Dad", "Freelance", "Bonus", "Gift", "Other"], 
+                key="income_category")
+            amount = st.number_input("Amount (₹)", min_value=0.0, format="%.2f", key="income_amount")
+            note = st.text_input("Note (optional)", key="income_note")
+            st.write("")
+            submitted = st.form_submit_button("✅ Add Income", use_container_width=True)
+            if submitted and amount > 0:
+                db.add_finance_entry(date.today().isoformat(), f"Income: {income_category}", float(amount), note)
+                st.success("💰 Income added!")
+                st.rerun()
+    
+    with tab2:
+        st.write("**Add Expense**")
+        with st.form("expense_form"):
+            expense_category = st.selectbox("Expense Type", 
+                ["Girlfriend", "Food", "Travel", "Entertainment", "Shopping", "Bills", "Other"],
+                key="expense_category")
+            amount = st.number_input("Amount (₹)", min_value=0.0, format="%.2f", key="expense_amount")
+            note = st.text_input("Note (optional)", key="expense_note")
+            st.write("")
+            submitted = st.form_submit_button("❌ Add Expense", use_container_width=True)
+            if submitted and amount > 0:
+                db.add_finance_entry(date.today().isoformat(), f"Expense: {expense_category}", float(amount), note)
+                st.success("✅ Expense recorded!")
+                st.rerun()
+    
+    with tab3:
+        st.write("**Add Investment**")
+        with st.form("investment_form"):
+            investment_category = st.selectbox("Investment Type",
+                ["Nifty 50", "Gold", "Stocks", "Crypto", "Savings", "Other"],
+                key="investment_category")
+            amount = st.number_input("Amount (₹)", min_value=0.0, format="%.2f", key="investment_amount")
+            note = st.text_input("Note (optional)", key="investment_note")
+            st.write("")
+            submitted = st.form_submit_button("📊 Add Investment", use_container_width=True)
+            if submitted and amount > 0:
+                db.add_finance_entry(date.today().isoformat(), f"Invest: {investment_category}", float(amount), note)
+                st.success("📈 Investment added!")
+                st.rerun()
 
     if not records:
         st.write("")

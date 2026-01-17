@@ -2,6 +2,66 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 from modules import database as db
 import time
+import serial
+
+# Arduino configuration
+ARDUINO_PORT = 'COM9'
+BAUD_RATE = 9600
+arduino = None
+
+# Calibration table for non-linear gauge (from CPU meter)
+CALIBRATION_TABLE = [
+    (0, 180),
+    (5, 180),
+    (6, 179),
+    (10, 175),
+    (13, 170),
+    (20, 160),
+    (30, 135),
+    (50, 90),
+    (70, 45),
+    (73, 40),
+    (80, 30),
+    (85, 20),
+    (100, 0)
+]
+
+def get_calibrated_angle(percentage):
+    """Convert percentage to calibrated servo angle using piecewise linear interpolation"""
+    percentage = max(0, min(100, percentage))
+    
+    for i in range(len(CALIBRATION_TABLE) - 1):
+        p1, a1 = CALIBRATION_TABLE[i]
+        p2, a2 = CALIBRATION_TABLE[i + 1]
+        
+        if p1 <= percentage <= p2:
+            if p2 == p1:
+                return int(a1)
+            ratio = (percentage - p1) / (p2 - p1)
+            angle = a1 + ratio * (a2 - a1)
+            return int(angle)
+    
+    return 90
+
+def init_arduino():
+    """Initialize Arduino connection"""
+    global arduino
+    try:
+        arduino = serial.Serial(ARDUINO_PORT, BAUD_RATE, timeout=1)
+        time.sleep(2)
+        return True
+    except:
+        return False
+
+def send_to_arduino(percentage):
+    """Send angle to Arduino servo"""
+    global arduino
+    if arduino:
+        try:
+            angle = get_calibrated_angle(percentage)
+            arduino.write(bytes([angle]))
+        except:
+            pass
 
 # Timer presets
 PRESETS = {
@@ -90,6 +150,10 @@ def render():
             mins = int(remaining // 60)
             secs = int(remaining % 60)
             
+            # Calculate percentage for servo (100% at start, 0% at end)
+            percentage = (remaining / (st.session_state.timer_duration * 60)) * 100
+            send_to_arduino(percentage)
+            
             # Large timer display
             st.markdown(f"""
             <div style="text-align: center; padding: 40px; background: rgba(10, 132, 255, 0.1); border-radius: 16px; border: 2px solid rgba(10, 132, 255, 0.3);">
@@ -124,6 +188,8 @@ def render():
             
             with col_btn3:
                 if st.button("✅ Finish", use_container_width=True):
+                    # Move servo to 0% (timer complete)
+                    send_to_arduino(0)
                     # Save completed session
                     start_time = datetime.fromtimestamp(st.session_state.timer_start_time).strftime("%H:%M")
                     db.add_timer_session(today, start_time, st.session_state.timer_duration, subject, completed=1)
@@ -139,6 +205,8 @@ def render():
         else:
             # Start button
             if st.button("▶️ Start Focus Session", use_container_width=True, key="start_timer"):
+                # Move servo to 100% (start position)
+                send_to_arduino(100)
                 st.session_state.timer_running = True
                 st.session_state.timer_start_time = time.time()
                 st.session_state.timer_paused = False
