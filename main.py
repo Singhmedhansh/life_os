@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import date
 from modules import database as db
-from views import academics, finance, health
+from views import academics, finance, health, timer
 
 # Version: 1.1
 # Page config
@@ -181,8 +181,7 @@ st.write("")
 # Conditional navigation based on mode
 if st.session_state.mobile_mode:
     # Mobile: Use horizontal tabs instead of sidebar
-    view = st.radio("", ["📚 Academics", "💰 Finance", "💪 Health"], horizontal=True, label_visibility="collapsed")
-    
+        view = st.radio("", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], horizontal=True, label_visibility="collapsed")
     # Show exam countdown in mobile mode
     exam_day = date(2026, 1, 16)
     days_remaining = (exam_day - date.today()).days
@@ -204,7 +203,7 @@ else:
     st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
     st.sidebar.markdown("<p style='text-align: center; font-weight: 600; margin-bottom: 12px; color: #86868b;'>NAVIGATE</p>", unsafe_allow_html=True)
 
-    view = st.sidebar.radio("Navigation", ["📚 Academics", "💰 Finance", "💪 Health"], label_visibility="collapsed")
+    view = st.sidebar.radio("Navigation", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], label_visibility="collapsed")
 
     st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
     st.sidebar.markdown("<p style='text-align: center; font-size: 12px; color: #86868b; margin-top: 40px;'>Life OS Dashboard v1.0<br>Track • Analyze • Achieve</p>", unsafe_allow_html=True)
@@ -217,7 +216,11 @@ elif "Finance" in view:
     st.markdown('<div class="apple-card">', unsafe_allow_html=True)
     finance.render()
     st.markdown('</div>', unsafe_allow_html=True)
-else:
+elif "Health" in view:
     st.markdown('<div class="apple-card">', unsafe_allow_html=True)
     health.render()
+    st.markdown('</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div class="apple-card">', unsafe_allow_html=True)
+    timer.render()
     st.markdown('</div>', unsafe_allow_html=True)

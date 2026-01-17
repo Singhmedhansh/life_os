@@ -49,6 +49,18 @@ def init_db() -> None:
         )
         """
     )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS timer_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            start_time TEXT NOT NULL,
+            duration_minutes INTEGER NOT NULL,
+            completed INTEGER DEFAULT 0,
+            subject TEXT DEFAULT 'General'
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -200,4 +212,70 @@ def get_habit_streak(habit: str) -> int:
         if not r["status"]:
             break
         streak += 1
+    return streak
+
+# --- Timer Sessions ---
+
+def add_timer_session(date_str: str, start_time: str, duration_minutes: int, subject: str = "General", completed: int = 1) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO timer_sessions (date, start_time, duration_minutes, completed, subject) VALUES (?, ?, ?, ?, ?)",
+        (date_str, start_time, duration_minutes, completed, subject),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_timer_sessions(date_str: str) -> List[sqlite3.Row]:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM timer_sessions WHERE date=? ORDER BY start_time DESC",
+        (date_str,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
+def get_timer_stats(date_str: str) -> Dict:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT SUM(duration_minutes) as total_minutes, COUNT(*) as total_sessions, SUM(completed) as completed_sessions FROM timer_sessions WHERE date=?",
+        (date_str,),
+    )
+    row = cur.fetchone()
+    conn.close()
+    
+    return {
+        "total_minutes": row["total_minutes"] or 0,
+        "total_sessions": row["total_sessions"] or 0,
+        "completed_sessions": row["completed_sessions"] or 0,
+    }
+
+
+def get_focus_streak() -> int:
+    """Get days in a row with at least one completed focus session"""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT DISTINCT date FROM timer_sessions WHERE completed=1 ORDER BY date DESC",
+    )
+    rows = cur.fetchall()
+    conn.close()
+    
+    from datetime import date, timedelta
+    streak = 0
+    current_date = date.today()
+    
+    for row in rows:
+        session_date = date.fromisoformat(row["date"])
+        if session_date == current_date:
+            streak += 1
+            current_date -= timedelta(days=1)
+        else:
+            break
+    
     return streak
