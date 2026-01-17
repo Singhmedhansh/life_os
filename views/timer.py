@@ -3,11 +3,11 @@ from datetime import date, datetime, timedelta
 from modules import database as db
 import time
 import serial
+import serial.tools.list_ports
 
 # Arduino configuration
 ARDUINO_PORT = 'COM9'
 BAUD_RATE = 9600
-arduino = None
 
 # Calibration table for non-linear gauge (from CPU meter)
 CALIBRATION_TABLE = [
@@ -26,6 +26,11 @@ CALIBRATION_TABLE = [
     (100, 0)
 ]
 
+# Initialize Arduino connection state in session
+if 'arduino_connected' not in st.session_state:
+    st.session_state.arduino_connected = False
+    st.session_state.arduino_port = ARDUINO_PORT
+
 def get_calibrated_angle(percentage):
     """Convert percentage to calibrated servo angle using piecewise linear interpolation"""
     percentage = max(0, min(100, percentage))
@@ -43,25 +48,39 @@ def get_calibrated_angle(percentage):
     
     return 90
 
-def init_arduino():
-    """Initialize Arduino connection"""
-    global arduino
+def test_arduino_connection(port=ARDUINO_PORT):
+    """Test if Arduino is connected and working"""
     try:
-        arduino = serial.Serial(ARDUINO_PORT, BAUD_RATE, timeout=1)
+        arduino = serial.Serial(port, BAUD_RATE, timeout=1)
         time.sleep(2)
+        
+        # Send test angle (90 degrees = middle position)
+        arduino.write(bytes([90]))
+        time.sleep(0.5)
+        
+        arduino.close()
+        return True, "✅ Arduino Connected! Servo responded."
+    except serial.SerialException as e:
+        return False, f"❌ Connection failed: {str(e)}"
+    except Exception as e:
+        return False, f"❌ Error: {str(e)}"
+
+def send_to_arduino(percentage, port=ARDUINO_PORT):
+    """Send angle to Arduino servo"""
+    try:
+        arduino = serial.Serial(port, BAUD_RATE, timeout=1)
+        angle = get_calibrated_angle(percentage)
+        arduino.write(bytes([angle]))
+        arduino.close()
         return True
     except:
         return False
 
-def send_to_arduino(percentage):
-    """Send angle to Arduino servo"""
-    global arduino
-    if arduino:
-        try:
-            angle = get_calibrated_angle(percentage)
-            arduino.write(bytes([angle]))
-        except:
-            pass
+def list_available_ports():
+    """List all available COM ports"""
+    ports = serial.tools.list_ports.comports()
+    port_list = [port.device for port in ports]
+    return port_list if port_list else ["COM3", "COM4", "COM5", "COM9"]
 
 # Timer presets
 PRESETS = {
@@ -74,6 +93,37 @@ PRESETS = {
 
 def render():
     st.header("⏱️ Focus Timer")
+    
+    # Arduino Connection Status & Testing
+    st.write("**Arduino Servo Connection**")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        selected_port = st.selectbox(
+            "Select COM Port",
+            list_available_ports(),
+            index=0 if ARDUINO_PORT not in list_available_ports() else list_available_ports().index(ARDUINO_PORT),
+            key="arduino_port_selector"
+        )
+        st.session_state.arduino_port = selected_port
+    
+    with col2:
+        if st.button("🔌 Test Connection", use_container_width=True):
+            success, message = test_arduino_connection(selected_port)
+            if success:
+                st.session_state.arduino_connected = True
+                st.success(message)
+            else:
+                st.session_state.arduino_connected = False
+                st.error(message)
+    
+    with col3:
+        if st.session_state.arduino_connected:
+            st.success("✅ Connected")
+        else:
+            st.warning("⚠️ Not Tested")
+    
+    st.divider()
     
     today = date.today().isoformat()
     
@@ -152,7 +202,10 @@ def render():
             
             # Calculate percentage for servo (100% at start, 0% at end)
             percentage = (remaining / (st.session_state.timer_duration * 60)) * 100
-            send_to_arduino(percentage)
+            
+            # Send to Arduino if connected
+            if st.session_state.arduino_connected:
+                send_to_arduino(percentage, st.session_state.arduino_port)
             
             # Large timer display
             st.markdown(f"""
@@ -188,8 +241,9 @@ def render():
             
             with col_btn3:
                 if st.button("✅ Finish", use_container_width=True):
-                    # Move servo to 0% (timer complete)
-                    send_to_arduino(0)
+                    # Move servo to 0% (timer complete) if connected
+                    if st.session_state.arduino_connected:
+                        send_to_arduino(0, st.session_state.arduino_port)
                     # Save completed session
                     start_time = datetime.fromtimestamp(st.session_state.timer_start_time).strftime("%H:%M")
                     db.add_timer_session(today, start_time, st.session_state.timer_duration, subject, completed=1)
@@ -204,13 +258,16 @@ def render():
         
         else:
             # Start button
-            if st.button("▶️ Start Focus Session", use_container_width=True, key="start_timer"):
-                # Move servo to 100% (start position)
-                send_to_arduino(100)
-                st.session_state.timer_running = True
-                st.session_state.timer_start_time = time.time()
-                st.session_state.timer_paused = False
-                st.session_state.timer_pause_time = 0
+            if sif not st.session_state.arduino_connected:
+                    st.warning("⚠️ Arduino not connected. Test connection first!")
+                else:
+                    # Move servo to 100% (start position) if connected
+                    send_to_arduino(100, st.session_state.arduino_port)
+                    st.session_state.timer_running = True
+                    st.session_state.timer_start_time = time.time()
+                    st.session_state.timer_paused = False
+                    st.session_state.timer_pause_time = 0
+                    st.session_state.timer_pause_time = 0
                 st.rerun()
     
     st.write("---")
