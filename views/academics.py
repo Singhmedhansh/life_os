@@ -69,14 +69,6 @@ SCHEDULE = {
 def render():
     st.header(" Academics ? Exam Plan")
     
-    # Motivational stats at top
-    exam_date = date(2026, 1, 16)
-    days_left = (exam_date - date.today()).days
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(" Days Until Exam", days_left, delta="Stay Focused!" if days_left > 7 else "Final Push!")
-    
     # Calculate overall progress
     total_days = 15
     all_completed = 0
@@ -87,11 +79,12 @@ def render():
             all_total += len(tasks)
             all_completed += sum(1 for t in tasks if t["status"])
     
-    with col2:
+    col1, col2, col3 = st.columns(3)
+    with col1:
         completion_pct = int((all_completed / all_total * 100)) if all_total > 0 else 0
         st.metric(" Overall Progress", f"{completion_pct}%", delta=f"{all_completed}/{all_total} tasks")
     
-    with col3:
+    with col2:
         if completion_pct >= 80:
             st.metric(" Status", "Excellent!", delta="Keep it up!")
         elif completion_pct >= 50:
@@ -99,15 +92,19 @@ def render():
         else:
             st.metric(" Status", "Need Focus", delta="Let's do this!")
     
+    with col3:
+        total_tasks = sum(len(SCHEDULE.get(d, [])) for d in SCHEDULE.keys())
+        st.metric(" Total Tasks", total_tasks, delta="to track")
+    
     st.write("---")
     st.write("Track daily exam prep tasks. Checkboxes persist instantly.")
 
     today = date.today()
     selected = st.date_input(
         "Select date",
-        value=today,
+        value=min(today, date(2026, 1, 16)),
         min_value=date(2026, 1, 2),
-        max_value=date(2026, 1, 16),
+        max_value=date(2026, 2, 28),
     )
     date_str = selected.isoformat()
 

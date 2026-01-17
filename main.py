@@ -181,25 +181,12 @@ st.write("")
 # Conditional navigation based on mode
 if st.session_state.mobile_mode:
     # Mobile: Use horizontal tabs instead of sidebar
-        view = st.radio("", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], horizontal=True, label_visibility="collapsed")
-    # Show exam countdown in mobile mode
-    exam_day = date(2026, 1, 16)
-    days_remaining = (exam_day - date.today()).days
-    st.metric("⏰ Days to Exam", max(days_remaining, 0), delta="Stay Focused!" if days_remaining > 7 else "Final Push!")
+    view = st.radio("", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], horizontal=True, label_visibility="collapsed")
     st.write("---")
 else:
     # Desktop: Use sidebar
     st.sidebar.markdown("<h1 style='text-align: center; margin-bottom: 0;'>🎯</h1>", unsafe_allow_html=True)
     st.sidebar.markdown("<h2 style='text-align: center; margin-top: 0; font-size: 24px;'>2026 Goals</h2>", unsafe_allow_html=True)
-    st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
-
-    # Countdown metric with better styling
-    exam_day = date(2026, 1, 16)
-    days_remaining = (exam_day - date.today()).days
-    st.sidebar.markdown("<div style='text-align: center; margin: 24px 0;'>", unsafe_allow_html=True)
-    st.sidebar.metric("⏰ Days to Exam", max(days_remaining, 0), delta="Stay Focused!" if days_remaining > 7 else "Final Push!", delta_color="normal")
-    st.sidebar.markdown("</div>", unsafe_allow_html=True)
-
     st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
     st.sidebar.markdown("<p style='text-align: center; font-weight: 600; margin-bottom: 12px; color: #86868b;'>NAVIGATE</p>", unsafe_allow_html=True)
 
