@@ -94,34 +94,52 @@ PRESETS = {
 def render():
     st.header("⏱️ Focus Timer")
     
-    # Arduino Connection Status & Testing
-    st.write("**Arduino Servo Connection**")
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Initialize focus mode in session state
+    if 'focus_mode' not in st.session_state:
+        st.session_state.focus_mode = "Focus Mode"
     
-    with col1:
-        selected_port = st.selectbox(
-            "Select COM Port",
-            list_available_ports(),
-            index=0 if ARDUINO_PORT not in list_available_ports() else list_available_ports().index(ARDUINO_PORT),
-            key="arduino_port_selector"
-        )
-        st.session_state.arduino_port = selected_port
+    # Focus Mode Selection
+    st.write("**Select Focus Mode**")
+    focus_mode = st.radio(
+        "",
+        ["🧠 Focus Mode (No Rev Meter)", "🎯 Focus with Rev Meter"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="focus_mode_radio"
+    )
+    st.session_state.focus_mode = focus_mode
     
-    with col2:
-        if st.button("🔌 Test Connection", use_container_width=True):
-            success, message = test_arduino_connection(selected_port)
-            if success:
-                st.session_state.arduino_connected = True
-                st.success(message)
+    # Arduino Connection Status & Testing (only show if using Rev Meter mode)
+    if "Rev Meter" in focus_mode:
+        st.write("**Arduino Servo Connection**")
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            selected_port = st.selectbox(
+                "Select COM Port",
+                list_available_ports(),
+                index=0 if ARDUINO_PORT not in list_available_ports() else list_available_ports().index(ARDUINO_PORT),
+                key="arduino_port_selector"
+            )
+            st.session_state.arduino_port = selected_port
+        
+        with col2:
+            if st.button("🔌 Test Connection", use_container_width=True):
+                success, message = test_arduino_connection(selected_port)
+                if success:
+                    st.session_state.arduino_connected = True
+                    st.success(message)
+                else:
+                    st.session_state.arduino_connected = False
+                    st.error(message)
+        
+        with col3:
+            if st.session_state.arduino_connected:
+                st.success("✅ Connected")
             else:
-                st.session_state.arduino_connected = False
-                st.error(message)
-    
-    with col3:
-        if st.session_state.arduino_connected:
-            st.success("✅ Connected")
-        else:
-            st.warning("⚠️ Not Tested")
+                st.warning("⚠️ Not Tested")
+    else:
+        st.info("💡 Focus Mode - Timer only, no Arduino needed!")
     
     st.divider()
     
@@ -203,8 +221,8 @@ def render():
             # Calculate percentage for servo (100% at start, 0% at end)
             percentage = (remaining / (st.session_state.timer_duration * 60)) * 100
             
-            # Send to Arduino if connected
-            if st.session_state.arduino_connected:
+            # Send to Arduino if using Rev Meter mode and connected
+            if "Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
                 send_to_arduino(percentage, st.session_state.arduino_port)
             
             # Large timer display
@@ -241,8 +259,8 @@ def render():
             
             with col_btn3:
                 if st.button("✅ Finish", use_container_width=True):
-                    # Move servo to 0% (timer complete) if connected
-                    if st.session_state.arduino_connected:
+                    # Move servo to 0% (timer complete) if using Rev Meter
+                    if "Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
                         send_to_arduino(0, st.session_state.arduino_port)
                     # Save completed session
                     start_time = datetime.fromtimestamp(st.session_state.timer_start_time).strftime("%H:%M")
@@ -258,17 +276,20 @@ def render():
         
         else:
             # Start button
-            if sif not st.session_state.arduino_connected:
+            if st.button("▶️ Start Focus Session", use_container_width=True, key="start_timer"):
+                # Check if Arduino is required and connected
+                if "Rev Meter" in st.session_state.focus_mode and not st.session_state.arduino_connected:
                     st.warning("⚠️ Arduino not connected. Test connection first!")
                 else:
-                    # Move servo to 100% (start position) if connected
-                    send_to_arduino(100, st.session_state.arduino_port)
+                    # Move servo to 100% if using Rev Meter mode
+                    if "Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
+                        send_to_arduino(100, st.session_state.arduino_port)
+                    
                     st.session_state.timer_running = True
                     st.session_state.timer_start_time = time.time()
                     st.session_state.timer_paused = False
                     st.session_state.timer_pause_time = 0
-                    st.session_state.timer_pause_time = 0
-                st.rerun()
+                    st.rerun()
     
     st.write("---")
     
