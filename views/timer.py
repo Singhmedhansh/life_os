@@ -2,8 +2,14 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 from modules import database as db
 import time
-import serial
-import serial.tools.list_ports
+
+# Optional serial import (for Arduino support)
+try:
+    import serial
+    import serial.tools.list_ports
+    SERIAL_AVAILABLE = True
+except ImportError:
+    SERIAL_AVAILABLE = False
 
 # Arduino configuration
 ARDUINO_PORT = 'COM9'
@@ -50,6 +56,9 @@ def get_calibrated_angle(percentage):
 
 def test_arduino_connection(port=ARDUINO_PORT):
     """Test if Arduino is connected and working"""
+    if not SERIAL_AVAILABLE:
+        return False, "❌ pyserial not installed. Arduino support unavailable on Render."
+    
     try:
         arduino = serial.Serial(port, BAUD_RATE, timeout=1)
         time.sleep(2)
@@ -67,6 +76,9 @@ def test_arduino_connection(port=ARDUINO_PORT):
 
 def send_to_arduino(percentage, port=ARDUINO_PORT):
     """Send angle to Arduino servo"""
+    if not SERIAL_AVAILABLE:
+        return False
+    
     try:
         arduino = serial.Serial(port, BAUD_RATE, timeout=1)
         angle = get_calibrated_angle(percentage)
@@ -78,9 +90,15 @@ def send_to_arduino(percentage, port=ARDUINO_PORT):
 
 def list_available_ports():
     """List all available COM ports"""
-    ports = serial.tools.list_ports.comports()
-    port_list = [port.device for port in ports]
-    return port_list if port_list else ["COM3", "COM4", "COM5", "COM9"]
+    if not SERIAL_AVAILABLE:
+        return ["COM3", "COM4", "COM5", "COM9"]
+    
+    try:
+        ports = serial.tools.list_ports.comports()
+        port_list = [port.device for port in ports]
+        return port_list if port_list else ["COM3", "COM4", "COM5", "COM9"]
+    except:
+        return ["COM3", "COM4", "COM5", "COM9"]
 
 # Timer presets
 PRESETS = {
