@@ -193,7 +193,7 @@ else:
     view = st.sidebar.radio("Navigation", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], label_visibility="collapsed")
 
     st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
-    st.sidebar.markdown("<p style='text-align: center; font-size: 12px; color: #86868b; margin-top: 40px;'>Life OS Dashboard v1.0<br>Track • Analyze • Achieve</p>", unsafe_allow_html=True)
+    st.sidebar.markdown("<p style='text-align: center; font-size: 12px; color: #86868b; margin-top: 40px;'>Life OS Dashboard v1.3<br>Track • Analyze • Achieve</p>", unsafe_allow_html=True)
 
 if "Academics" in view:
     st.markdown('<div class="apple-card">', unsafe_allow_html=True)
