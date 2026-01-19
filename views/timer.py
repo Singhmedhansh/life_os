@@ -181,7 +181,6 @@ def create_pip_timer(mins, secs, subject, duration):
         }});
     </script>
     """
-        return ["COM3", "COM4", "COM5", "COM9"]
 
 # Timer presets
 PRESETS = {
