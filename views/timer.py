@@ -236,6 +236,32 @@ def render():
             mins = int(remaining // 60)
             secs = int(remaining % 60)
             
+            # Check if timer has completed
+            if remaining == 0 and not st.session_state.get('timer_completed', False):
+                st.session_state.timer_completed = True
+                # Send desktop notification
+                st.toast("⏰ Focus Session Complete! Great work!", icon="🎉")
+                # Trigger browser notification with JavaScript
+                st.markdown("""
+                <script>
+                if (Notification.permission === "granted") {
+                    new Notification("Focus Timer Complete!", {
+                        body: "Great job! Your focus session is done.",
+                        icon: "🎯"
+                    });
+                } else if (Notification.permission !== "denied") {
+                    Notification.requestPermission().then(function (permission) {
+                        if (permission === "granted") {
+                            new Notification("Focus Timer Complete!", {
+                                body: "Great job! Your focus session is done.",
+                                icon: "🎯"
+                            });
+                        }
+                    });
+                }
+                </script>
+                """, unsafe_allow_html=True)
+            
             # Calculate percentage for servo (100% at start, 0% at end)
             percentage = (remaining / (st.session_state.timer_duration * 60)) * 100
             
@@ -307,6 +333,7 @@ def render():
                     st.session_state.timer_start_time = time.time()
                     st.session_state.timer_paused = False
                     st.session_state.timer_pause_time = 0
+                    st.session_state.timer_completed = False  # Reset completion flag
                     st.rerun()
     
     st.write("---")
