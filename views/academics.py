@@ -1,6 +1,38 @@
 import streamlit as st
-from datetime import date
+from datetime import date, datetime
 from modules import database as db
+
+def check_and_send_reminders():
+    """Check time and send task reminders throughout the day"""
+    current_hour = datetime.now().hour
+    
+    # Reminder schedule
+    reminders = {
+        8: ("🌅 Morning Reminder", "Time to plan your day! Enter all your tasks for today."),
+        14: ("☀️ Afternoon Check-in", "You're halfway through the day! Complete 2-3 tasks now."),
+        18: ("🌆 Evening Reminder", "Finish another task before dinner. You're doing great!"),
+        21: ("🌙 Night Review", "How many tasks did you complete today? Time to review your progress!")
+    }
+    
+    if current_hour in reminders:
+        title, message = reminders[current_hour]
+        
+        # Show in-app notification
+        st.toast(f"{title}: {message}", icon="🔔")
+        
+        # Browser notification
+        st.markdown(f"""
+        <script>
+            if (Notification.permission === "granted") {{
+                var notification = new Notification("{title}", {{
+                    body: "{message}",
+                    icon: "📚",
+                    tag: "task-reminder-{current_hour}"
+                }});
+                setTimeout(() => notification.close(), 15000);
+            }}
+        </script>
+        """, unsafe_allow_html=True)
 
 # Hardcoded exam schedule
 SCHEDULE = {
@@ -68,6 +100,9 @@ SCHEDULE = {
 
 def render():
     st.header(" Academics ? Exam Plan")
+    
+    # Check and send reminders
+    check_and_send_reminders()
     
     # Calculate overall progress
     total_days = 15

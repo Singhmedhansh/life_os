@@ -100,6 +100,89 @@ def list_available_ports():
     except:
         return ["COM3", "COM4", "COM5", "COM9"]
 
+def create_pip_timer(mins, secs, subject, duration):
+    """Create Picture-in-Picture timer HTML"""
+    return f"""
+    <style>
+        .pip-timer {{
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 9999;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            cursor: move;
+            user-select: none;
+        }}
+        .pip-time {{
+            font-size: 3em;
+            font-weight: 300;
+            letter-spacing: -1px;
+            margin: 0;
+            text-align: center;
+        }}
+        .pip-subject {{
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 8px;
+            text-align: center;
+        }}
+        .pip-close {{
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+        }}
+        .pip-close:hover {{
+            background: rgba(255,255,255,0.3);
+        }}
+    </style>
+    <div class="pip-timer" id="pipTimer">
+        <button class="pip-close" onclick="document.getElementById('pipTimer').style.display='none'">✕</button>
+        <div class="pip-time">{mins:02d}:{secs:02d}</div>
+        <div class="pip-subject">{subject} • {duration}m</div>
+    </div>
+    <script>
+        const timer = document.getElementById('pipTimer');
+        let isDragging = false;
+        let currentX, currentY, initialX, initialY;
+        
+        timer.addEventListener('mousedown', function(e) {{
+            if (e.target.className === 'pip-close') return;
+            isDragging = true;
+            initialX = e.clientX - timer.offsetLeft;
+            initialY = e.clientY - timer.offsetTop;
+        }});
+        
+        document.addEventListener('mousemove', function(e) {{
+            if (isDragging) {{
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                timer.style.left = currentX + 'px';
+                timer.style.top = currentY + 'px';
+                timer.style.right = 'auto';
+            }}
+        }});
+        
+        document.addEventListener('mouseup', function() {{
+            isDragging = false;
+        }});
+    </script>
+    """
+        return ["COM3", "COM4", "COM5", "COM9"]
+
 # Timer presets
 PRESETS = {
     "🍅 Pomodoro (25m)": 25,
@@ -111,6 +194,15 @@ PRESETS = {
 
 def render():
     st.header("⏱️ Focus Timer")
+    
+    # Request notification permission on load
+    st.markdown("""
+    <script>
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+        }
+    </script>
+    """, unsafe_allow_html=True)
     
     # Initialize focus mode in session state
     if 'focus_mode' not in st.session_state:
@@ -128,7 +220,7 @@ def render():
     st.session_state.focus_mode = focus_mode
     
     # Arduino Connection Status & Testing (only show if using Rev Meter mode)
-    if "Rev Meter" in focus_mode:
+    if "Focus with Rev Meter" in focus_mode:
         st.write("**Arduino Servo Connection**")
         col1, col2, col3 = st.columns([2, 1, 1])
         
@@ -239,35 +331,41 @@ def render():
             # Check if timer has completed
             if remaining == 0 and not st.session_state.get('timer_completed', False):
                 st.session_state.timer_completed = True
-                # Send desktop notification
+                st.session_state.timer_running = False
+                
+                if "Focus with Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
+                    send_to_arduino(0, st.session_state.arduino_port)
+                
+                start_time = datetime.fromtimestamp(st.session_state.timer_start_time).strftime("%H:%M")
+                db.add_timer_session(date.today(), start_time, st.session_state.timer_duration, subject, completed=1)
+                
                 st.toast("⏰ Focus Session Complete! Great work!", icon="🎉")
-                # Trigger browser notification with JavaScript
-                st.markdown("""
+                st.markdown(f"""
                 <script>
-                if (Notification.permission === "granted") {
-                    new Notification("Focus Timer Complete!", {
-                        body: "Great job! Your focus session is done.",
-                        icon: "🎯"
-                    });
-                } else if (Notification.permission !== "denied") {
-                    Notification.requestPermission().then(function (permission) {
-                        if (permission === "granted") {
-                            new Notification("Focus Timer Complete!", {
-                                body: "Great job! Your focus session is done.",
-                                icon: "🎯"
-                            });
-                        }
-                    });
-                }
+                    if (Notification.permission === "granted") {{
+                        var notification = new Notification("🎯 Focus Session Complete!", {{
+                            body: "Amazing! Your {subject} session is done. Time for a break!",
+                            requireInteraction: true,
+                            tag: "timer-complete"
+                        }});
+                        setTimeout(() => notification.close(), 10000);
+                    }}
                 </script>
                 """, unsafe_allow_html=True)
+                
+                st.success(f"🎉 Awesome! {st.session_state.timer_duration}m {subject} session completed!")
+                st.balloons()
             
             # Calculate percentage for servo (100% at start, 0% at end)
             percentage = (remaining / (st.session_state.timer_duration * 60)) * 100
             
             # Send to Arduino if using Rev Meter mode and connected
-            if "Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
+            if "Focus with Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
                 send_to_arduino(percentage, st.session_state.arduino_port)
+            
+            # Picture-in-Picture floating timer
+            pip_html = create_pip_timer(mins, secs, subject, st.session_state.timer_duration)
+            st.markdown(pip_html, unsafe_allow_html=True)
             
             # Large timer display
             st.markdown(f"""
@@ -304,7 +402,7 @@ def render():
             with col_btn3:
                 if st.button("✅ Finish", use_container_width=True):
                     # Move servo to 0% (timer complete) if using Rev Meter
-                    if "Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
+                    if "Focus with Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
                         send_to_arduino(0, st.session_state.arduino_port)
                     # Save completed session
                     start_time = datetime.fromtimestamp(st.session_state.timer_start_time).strftime("%H:%M")
@@ -314,19 +412,20 @@ def render():
                     time.sleep(2)
                     st.rerun()
             
-            # Auto-rerun for timer updates
-            time.sleep(0.1)
-            st.rerun()
+            # Auto-rerun for timer updates (only if still running)
+            if st.session_state.timer_running and not st.session_state.get('timer_completed', False):
+                time.sleep(0.1)
+                st.rerun()
         
         else:
             # Start button
             if st.button("▶️ Start Focus Session", use_container_width=True, key="start_timer"):
                 # Check if Arduino is required and connected
-                if "Rev Meter" in st.session_state.focus_mode and not st.session_state.arduino_connected:
+                if "Focus with Rev Meter" in st.session_state.focus_mode and not st.session_state.arduino_connected:
                     st.warning("⚠️ Arduino not connected. Test connection first!")
                 else:
                     # Move servo to 100% if using Rev Meter mode
-                    if "Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
+                    if "Focus with Rev Meter" in st.session_state.focus_mode and st.session_state.arduino_connected:
                         send_to_arduino(100, st.session_state.arduino_port)
                     
                     st.session_state.timer_running = True
