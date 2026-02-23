@@ -16,6 +16,18 @@ CATEGORIES = [
 ]
 
 
+def apply_soft_ui_plotly_theme(fig):
+    fig.update_layout(
+        template="simple_white",
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        font=dict(color="#0F172A"),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="#94A3B8", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="#94A3B8", zeroline=False)
+    return fig
+
+
 def render():
     st.header(" Finance — The 10% Rule")
     
@@ -66,7 +78,7 @@ def render():
             amount = st.number_input("Amount (₹)", min_value=0.0, format="%.2f", key="income_amount")
             note = st.text_input("Note (optional)", key="income_note")
             st.write("")
-            submitted = st.form_submit_button("✅ Add Income", use_container_width=True)
+            submitted = st.form_submit_button("✅ Add Income", use_container_width=True, type="primary")
             if submitted and amount > 0:
                 db.add_finance_entry(date.today().isoformat(), f"Income: {income_category}", float(amount), note)
                 st.success("💰 Income added!")
@@ -120,6 +132,7 @@ def render():
         fig_exp = px.pie(exp_df, names="category", values="amount", hole=0.5, 
                          title="Where Your Money Goes",
                          color_discrete_sequence=px.colors.qualitative.Set3)
+        fig_exp = apply_soft_ui_plotly_theme(fig_exp)
         st.plotly_chart(fig_exp, width='stretch')
         
         st.write("")
@@ -144,6 +157,7 @@ def render():
                           title="Your Wealth Journey",
                           labels={"amount": "Total Invested", "date_only": "Date"})
         fig_inv.update_traces(line_color='#007aff', line_width=3)
+        fig_inv = apply_soft_ui_plotly_theme(fig_inv)
         st.plotly_chart(fig_inv, width='stretch')
         
         st.write("")

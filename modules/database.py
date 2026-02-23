@@ -1,9 +1,12 @@
+import os
 import sqlite3
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "life_os.db"
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+# Persist DB in a user-writable location (works for bundled exe too)
+DATA_DIR = Path(os.environ.get("LIFE_OS_DATA_DIR", Path.home() / "LifeOS" / "data")).resolve()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = DATA_DIR / "life_os.db"
 
 
 # --- Connection helpers ---

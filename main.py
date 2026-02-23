@@ -1,213 +1,141 @@
+import importlib
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
 import streamlit as st
-from datetime import date
-from modules import database as db
-from views import academics, finance, health, timer
+from styles import apply_workspace_theme
 
-# Version: 1.3 - Added focus mode toggle (with/without rev meter)
-# Page config
-st.set_page_config(page_title="Life OS Dashboard", page_icon="🧭", layout="wide")
 
-# Initialize mobile mode in session state
-if 'mobile_mode' not in st.session_state:
-    st.session_state.mobile_mode = False
+DATA_DIR = Path("data")
 
-# FORCE LIGHT MODE WITH INLINE CSS + MOBILE RESPONSIVE
-mobile_css = """
-/* MOBILE MODE OVERRIDES */
-.block-container {
-  padding: 1rem 0.5rem !important;
-  max-width: 100% !important;
-}
 
-[data-testid="stSidebar"] {
-  display: none !important;
-}
+def _safe_number(value: Any, default: float = 0.0) -> float:
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except Exception:
+        return default
 
-.stMetric {
-  font-size: 0.9rem !important;
-}
 
-.stMetricValue {
-  font-size: 1.2rem !important;
-}
+def _scan_csv_for_keys(path: Path, keys: list[str]) -> float:
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        return 0.0
 
-h1 {
-  font-size: 1.5rem !important;
-}
+    total = 0.0
+    lowered = {c.lower(): c for c in df.columns}
+    for key in keys:
+        for col_l, col in lowered.items():
+            if key in col_l:
+                total += pd.to_numeric(df[col], errors="coerce").fillna(0).sum()
+    return _safe_number(total, 0.0)
 
-h2 {
-  font-size: 1.2rem !important;
-}
 
-.apple-card {
-  padding: 16px !important;
-  margin-bottom: 12px !important;
-}
+def _scan_json_for_keys(path: Path, keys: list[str]) -> float:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return 0.0
 
-.stButton button {
-  width: 100% !important;
-  padding: 0.75rem !important;
-}
+    def walk(node: Any) -> float:
+        subtotal = 0.0
+        if isinstance(node, dict):
+            for k, v in node.items():
+                k_l = str(k).lower()
+                if any(key in k_l for key in keys):
+                    subtotal += _safe_number(v, 0.0)
+                subtotal += walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                subtotal += walk(item)
+        return subtotal
 
-input, .stDateInput, .stTextInput, .stSelectbox {
-  font-size: 16px !important;
-}
+    return walk(payload)
 
-.stExpander {
-  margin: 8px 0 !important;
-}
-""" if st.session_state.mobile_mode else ""
 
-css_base = '''
-<style>
-:root {
-  --bg: #f5f5f7;
-  --text: #0f172a;
-  --card: #ffffff;
-  --muted: #475569;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
-  --radius: 16px;
-  --accent: #007aff;
-}
+def _compute_kpis() -> dict[str, str]:
+    expenses = 0.0
+    academic_progress = 0.0
+    habit_streak = 0.0
 
-/* FORCE EVERYTHING TO LIGHT MODE */
-html, body, [class*="css"], .stApp, .main, .block-container, section {
-  background: #f5f5f7 !important;
-  color: #0f172a !important;
-}
+    if DATA_DIR.exists():
+        for file in DATA_DIR.glob("*"):
+            suffix = file.suffix.lower()
+            if suffix == ".csv":
+                expenses += _scan_csv_for_keys(file, ["expense", "spent", "amount", "cost"])
+                academic_progress += _scan_csv_for_keys(file, ["progress", "grade", "score", "completion"])
+                habit_streak += _scan_csv_for_keys(file, ["streak", "habit", "days"])
+            elif suffix == ".json":
+                expenses += _scan_json_for_keys(file, ["expense", "spent", "amount", "cost"])
+                academic_progress += _scan_json_for_keys(file, ["progress", "grade", "score", "completion"])
+                habit_streak += _scan_json_for_keys(file, ["streak", "habit", "days"])
 
-/* SIDEBAR: FORCE WHITE BACKGROUND AND DARK TEXT */
-[data-testid="stSidebar"] {
-  background: #ffffff !important;
-  border-right: 1px solid #e5e5ea !important;
-}
+    academic_pct = min(100.0, max(0.0, academic_progress))
+    return {
+        "Total Expenses": f"${expenses:,.2f}",
+        "Academic Progress": f"{academic_pct:.0f}%",
+        "Habit Streaks": f"{habit_streak:.0f} days",
+        "Data Sources": str(len(list(DATA_DIR.glob('*')))) if DATA_DIR.exists() else "0",
+    }
 
-[data-testid="stSidebar"] *,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] div,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3 {
-  color: #0f172a !important;
-  background-color: transparent !important;
-}
 
-.stMetricValue,
-.stMetricLabel {
-  color: #0f172a !important;
-  font-weight: 600 !important;
-}
+def _render_dashboard() -> None:
+    st.title("Dashboard")
+    st.caption("Your productivity workspace at a glance")
+    st.divider()
 
-/* Radio buttons - make them look like navigation pills */
-[data-testid="stSidebar"] [role="radiogroup"] label {
-  color: #0f172a !important;
-  padding: 12px 16px !important;
-  border-radius: 10px !important;
-  margin: 4px 0 !important;
-  transition: all 0.2s ease !important;
-}
+    kpis = _compute_kpis()
+    c1, c2, c3, c4 = st.columns(4)
 
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {
-  background: #f5f5f7 !important;
-}
+    with c1:
+        st.metric("Total Expenses", kpis["Total Expenses"])
+    with c2:
+        st.metric("Academic Progress", kpis["Academic Progress"])
+    with c3:
+        st.metric("Habit Streaks", kpis["Habit Streaks"])
+    with c4:
+        st.metric("Data Sources", kpis["Data Sources"])
 
-.apple-card {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  margin-bottom: 20px;
-  color: #0f172a !important;
-}
+    st.markdown('<p class="kpi-caption">Minimal summary view · no-scroll KPIs</p>', unsafe_allow_html=True)
+    st.divider()
 
-.apple-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.1);
-}
 
-h1, h2, h3, p, li, label, span, div, a {
-  color: #0f172a !important;
-}
+def _run_view(module_name: str) -> None:
+    module = importlib.import_module(module_name)
+    candidates = ("render", "show", "app", "main", "run", "page")
+    for fn_name in candidates:
+        fn = getattr(module, fn_name, None)
+        if callable(fn):
+            fn()
+            return
+    st.warning(f"No callable entrypoint found in `{module_name}`. Tried: {', '.join(candidates)}")
 
-div[data-baseweb="input"] > div,
-.stDateInput input,
-.stSelectbox [data-baseweb="select"] {
-  background: #ffffff !important;
-  color: #000000 !important;
-  border: 1px solid #d1d1d6 !important;
-  border-radius: 10px !important;
-}
 
-.stButton button {
-  background: #007aff;
-  color: #fff;
-  border-radius: 10px;
-  border: none;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
+def main() -> None:
+    st.set_page_config(page_title="Life OS", page_icon="🧩", layout="wide")
+    apply_workspace_theme()
 
-.stButton button:hover {
-  background: #0051d5;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-}
+    st.sidebar.markdown("### Life OS")
+    page = st.sidebar.radio(
+        "Navigation",
+        options=["🏠 Dashboard", "💰 Finance", "📚 Academics", "⚡ Health"],
+        index=0,
+        label_visibility="collapsed",
+    )
 
-''' + mobile_css + '''
-</style>
-'''
+    if page == "🏠 Dashboard":
+        _render_dashboard()
+    elif page == "💰 Finance":
+        _run_view("views.finance")
+    elif page == "📚 Academics":
+        _run_view("views.academics")
+    elif page == "⚡ Health":
+        _run_view("views.health")
 
-st.markdown(css_base, unsafe_allow_html=True)
 
-# Initialize DB
-db.init_db()
-
-# Mobile toggle at the top
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.markdown("<h1 style='margin-bottom: 0;'>Life OS Dashboard</h1>", unsafe_allow_html=True)
-with col2:
-    if st.button("📱" if not st.session_state.mobile_mode else "💻", help="Toggle Mobile/Desktop Mode"):
-        st.session_state.mobile_mode = not st.session_state.mobile_mode
-        st.rerun()
-
-st.caption("Track your progress across academics, finance, and health")
-st.write("")
-
-# Conditional navigation based on mode
-if st.session_state.mobile_mode:
-    # Mobile: Use horizontal tabs instead of sidebar
-    view = st.radio("", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], horizontal=True, label_visibility="collapsed")
-    st.write("---")
-else:
-    # Desktop: Use sidebar
-    st.sidebar.markdown("<h1 style='text-align: center; margin-bottom: 0;'>🎯</h1>", unsafe_allow_html=True)
-    st.sidebar.markdown("<h2 style='text-align: center; margin-top: 0; font-size: 24px;'>2026 Goals</h2>", unsafe_allow_html=True)
-    st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
-    st.sidebar.markdown("<p style='text-align: center; font-weight: 600; margin-bottom: 12px; color: #86868b;'>NAVIGATE</p>", unsafe_allow_html=True)
-
-    view = st.sidebar.radio("Navigation", ["📚 Academics", "💰 Finance", "💪 Health", "⏱️ Timer"], label_visibility="collapsed")
-
-    st.sidebar.markdown("<hr style='margin: 20px 0; border: none; border-top: 1px solid #e5e5ea;'>", unsafe_allow_html=True)
-    st.sidebar.markdown("<p style='text-align: center; font-size: 12px; color: #86868b; margin-top: 40px;'>Life OS Dashboard v1.3<br>Track • Analyze • Achieve</p>", unsafe_allow_html=True)
-
-if "Academics" in view:
-    st.markdown('<div class="apple-card">', unsafe_allow_html=True)
-    academics.render()
-    st.markdown('</div>', unsafe_allow_html=True)
-elif "Finance" in view:
-    st.markdown('<div class="apple-card">', unsafe_allow_html=True)
-    finance.render()
-    st.markdown('</div>', unsafe_allow_html=True)
-elif "Health" in view:
-    st.markdown('<div class="apple-card">', unsafe_allow_html=True)
-    health.render()
-    st.markdown('</div>', unsafe_allow_html=True)
-else:
-    st.markdown('<div class="apple-card">', unsafe_allow_html=True)
-    timer.render()
-    st.markdown('</div>', unsafe_allow_html=True)
+if __name__ == "__main__":
+    main()

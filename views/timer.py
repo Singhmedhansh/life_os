@@ -418,7 +418,7 @@ def render():
         
         else:
             # Start button
-            if st.button("▶️ Start Focus Session", use_container_width=True, key="start_timer"):
+            if st.button("▶️ Start Focus Session", use_container_width=True, key="start_timer", type="primary"):
                 # Check if Arduino is required and connected
                 if "Focus with Rev Meter" in st.session_state.focus_mode and not st.session_state.arduino_connected:
                     st.warning("⚠️ Arduino not connected. Test connection first!")
